@@ -1,0 +1,292 @@
+<!doctype html>
+ <meta charset="UTF-8">
+<html>
+  <head>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+  </head>
+  <body>
+    
+  </body>
+  	<script type="text/javascript">
+
+  		width = window.innerWidth;
+  		height = window.innerHeight;
+  		padding = 200
+
+  		svg = d3.select('body').append('svg')
+  			.attr('width', width)
+  			.attr('height', height)
+
+  		makeAxes = function(val){
+  			var xScale = d3.scaleLinear()
+				.domain(val)
+				.range([padding, width - padding * 2]);
+				//.range([padding, w - padding * 2]);
+
+  			var xAxis = d3.axisBottom().scale(xScale).ticks(10);
+  			return xAxis
+		}
+
+  		d3.json("air.json").then(function(data, error){
+
+  			var n = 3
+  			var size = 200
+  			smallspace = 20
+
+  			data.data.forEach(e => {
+  				e.Make = e.Make.toUpperCase();
+  				e.Carrier = e.Carrier.toUpperCase();
+  				if (e.Carrier == "AMERICAN AIRLINES, INC.") e.Carrier = "AMERICAN AIRLINES"
+  				if (e.Carrier == "AMERICAN AIRLINES INC") e.Carrier = "AMERICAN AIRLINES"
+  				if (e.Carrier == "CONTINENTAL AIRLINES, INC.") e.Carrier = "CONTINENTAL AIRLINES"
+  				if (e.Carrier == "DELTA AIR LINES, INC.") e.Carrier = "DELTA AIRLINES"
+  				if (e.Carrier == "DELTA AIR LINES INC") e.Carrier = "DELTA AIRLINES"
+  				if (e.Carrier == "DELTA AIR LINES") e.Carrier = "DELTA AIRLINES"	
+  				if (e.Carrier == "UNITED AIR LINES INC") e.Carrier = "UNITED AIRLINES"	
+  				if (e.Carrier == "SOUTHWEST AIRLINES CO") e.Carrier = "SOUTHWEST AIRLINES"
+  				if (e.Carrier == "SIMMONS AIRLINES (DBA: AMERICAN EAGLE)") e.Carrier = "SIMMONS AIRLINES"
+  				if (e.Make == "MCDONNELL DOUGLAS") e.Make = "DOUGLAS"
+  				if (e.Make == "AIRBUS INDUSTRIE") e.Make = "AIRBUS"
+  				if (e.Weather_Condition == "VMC") e.Weather_Condition = "GOOD WEATHER"
+  				if (e.Weather_Condition == "IMC") e.Weather_Condition = "BAD WEATHER"
+  				if (e.Weather_Condition == "" || e.Weather_Condition == "UNK") e.Weather_Condition = "UNKNOWN WEATHER"
+  			})
+
+  			carriers = [... new Set(data.data.filter(c => c.Carrier != '').map(d => d.Carrier))]
+  			carriers = carriers.filter(d => data.data.filter(e => e.Carrier == d).length > 10)
+  			weather_conditions = [... new Set(data.data.filter(c => c.Weather_Condition != '').map(d => d.Weather_Condition))]
+  			makes = [... new Set(data.data.filter(c => c.Make != '').map(d => d.Make))]
+  			makes = makes.filter(d => data.data.filter(e => e.Make == d).length > 50)
+  			//console.log(carriers)
+  			xAxis = makeAxes(makes)
+  			//console.log(makes)
+  			data.data = data.data.filter(d => makes.indexOf(d.Make) != -1 && carriers.indexOf(d.Carrier) != -1)
+  			carriers = carriers.filter(d => data.data.filter(e => e.Carrier == d).length > 10)
+  			carriers.unshift("TRANS WORLD AIRLINES")
+  			makes = makes.filter(d => data.data.filter(e => e.Make == d).length > 1)
+
+			svg.append("text")
+				.text("Number of plane crashes by weather condition, carrier and plane manufacturer")
+				.style('font-family', 'Arial')
+				.attr("x", 120)
+				.attr("y", 70)
+
+			drawCell = function(arr1, arr2, prop1, prop2, paddingx, paddingy){
+				cell = svg.append("g")
+					.attr("class", "cell")
+					.attr("transform", (d, i) => "translate(" + paddingx + "," + paddingy +")")
+
+				cell.selectAll('circle')
+					.data(data.data)
+					.enter()
+					.append('circle')
+					.attr('cy', d => arr1.indexOf(d[prop1])*smallspace)
+					.attr('cx', d => arr2.indexOf(d[prop2])*smallspace)
+					.attr('r', d => 4)
+					.attr('class', prop1+prop2)
+					.attr('fill', d => d3.interpolateOrRd(data.data.filter(e => e[prop2] == d[prop2] && e[prop1] == d[prop1]).length / (data.data.length*.5) + 0.3))
+					.on('mouseover', d => {
+						svg.selectAll('text').filter(t => t == d[prop1] || t == d[prop2])
+						.style('font-weight', 'bold')
+
+						svg.selectAll('circle.' + prop2 + prop1).filter(e => d == e)
+							.attr('r', 8)
+							.attr('stroke-width', '3')
+							.attr('stroke', 'orange')
+						svg.selectAll('circle.' + prop1 + prop2).filter(e => d == e)
+							.attr('r', 8)
+							.attr('stroke-width', '3')
+							.attr('stroke', 'orange')
+						
+					})
+					.on('mouseout', d => {
+						svg.selectAll('circle').filter(e => e == d)
+							.attr('r', 4)
+							.attr('stroke-width', '0')
+							.attr('stroke', 'orange')
+						svg.selectAll('text').filter(t => t == d[prop1] || t == d[prop2])
+						.style('font-weight', 'normal')
+					} )
+					.on('click', d => console.log(d))
+
+			}
+
+			drawCell(makes, makes, 'Make', 'Make', padding + size, padding+size)
+			drawCell(makes, carriers, 'Make', 'Carrier', padding, padding+size)
+			drawCell(carriers, carriers, 'Carrier', 'Carrier', padding, padding)
+			drawCell(carriers, makes, 'Carrier', 'Make', padding + size, padding)
+			drawCell(weather_conditions, weather_conditions, 'Weather_Condition', 'Weather_Condition', padding - size*0.3, padding - size*0.3)
+			drawCell(weather_conditions, carriers, 'Weather_Condition', 'Carrier', padding, padding - size*0.3)
+			drawCell(weather_conditions, makes, 'Weather_Condition', 'Make', padding + size, padding - size*0.3)
+			drawCell(carriers, weather_conditions, 'Carrier', 'Weather_Condition', padding - size*0.3, padding)
+			drawCell(makes, weather_conditions, 'Make', 'Weather_Condition', padding - size*0.3, padding + size)
+
+			svg.append("line")    
+			    .style("stroke", "#ccc").attr("x1", padding - size*0.3).attr("y1", padding - smallspace/2).attr("x2", padding + size * 2).attr("y2", padding - smallspace/2); 
+			svg.append("line")    
+			    .style("stroke", "#ccc").attr("x1", padding - size*0.3).attr("y1", padding  + size - smallspace/2).attr("x2", padding + size * 2).attr("y2", padding + size - smallspace/2); 
+
+			svg.append("line")    
+			    .style("stroke", "#ccc").attr("x1", padding - smallspace/2).attr("y1", padding - size * 0.3).attr("x2", padding - smallspace/2).attr("y2", padding + size*2); 
+			svg.append("line")    
+			    .style("stroke", "#ccc").attr("x1", padding - smallspace/2 + size).attr("y1", padding - size * 0.3).attr("x2", padding - smallspace/2 + size).attr("y2", padding + size*2); 
+
+			// 1
+
+			
+			svg.selectAll('.h_text')
+				.data(makes)
+				.enter()
+				.append('text')
+				.text(d => d)
+				.style('font-size', 'x-small')
+				.style('font-family', 'Arial')
+				.attr('text-anchor', 'start')
+				.attr('y', (d, i) => i*smallspace + smallspace/4 + padding + size)
+				.attr('x', padding + size*1.6)
+
+			svg.append('text')
+				.text("manufacturer")
+				.style('font-size', 'small')
+				.style('font-weight', 'bold')
+				.style('font-family', 'Arial')
+				.style('fill', '#ccc')
+				.attr('transform', 'translate(' + (padding + size*2.4) + ',' + (smallspace/4 + padding + size) +')rotate(90)')
+
+			svg.selectAll('.h_text')
+				.data(carriers)
+				.enter()
+				.append('text')
+				.text(d => d)
+				.style('font-size', 'x-small')
+				.style('font-family', 'Arial')
+				.attr('text-anchor', 'start')
+				.attr('y', (d, i) => i*smallspace + smallspace/4 + padding)
+				.attr('x', padding + size*1.6)
+
+			svg.append('text')
+				.text("carrier")
+				.style('font-size', 'small')
+				.style('font-weight', 'bold')
+				.style('font-family', 'Arial')
+				.style('fill', '#ccc')
+				.attr('transform', 'translate(' + (padding + size*2.4) + ',' + (smallspace/4 + padding + size*0.3) +')rotate(90)')
+
+			svg.selectAll('.h_text')
+				.data(weather_conditions)
+				.enter()
+				.append('text')
+				.text(d => d)
+				.style('font-size', 'x-small')
+				.style('font-family', 'Arial')
+				.attr('text-anchor', 'start')
+				.attr('y', (d, i) => i*smallspace + smallspace/4 + padding - size*0.3)
+				.attr('x', padding + size*1.6)
+
+			svg.append('text')
+				.text("weather")
+				.style('font-size', 'small')
+				.style('font-weight', 'bold')
+				.style('font-family', 'Arial')
+				.style('fill', '#ccc')
+				.attr('transform', 'translate(' + (padding + size*2.4) + ',' + (smallspace/4 + padding - size*0.35) +')rotate(90)')
+
+			svg.selectAll('.v_text')
+				.data(makes)
+				.enter()
+				.append('text')
+				.text(d => d)
+				.style('font-size', 'x-small')
+				.style('font-family', 'Arial')
+				.attr('text-anchor', 'start')
+				.attr('transform', (d, i) => 'translate(' + (i*smallspace + size * 2) + ', ' + (padding + size*1.6) + ')rotate(90)')
+
+			svg.append('text')
+				.text("manufacturer")
+				.style('font-size', 'small')
+				.style('font-weight', 'bold')
+				.style('font-family', 'Arial')
+				.style('fill', '#ccc')
+				.attr('transform', 'translate(' + (smallspace + size * 1.9) + ',' + (padding + size*2.4)+')')
+
+			svg.selectAll('.v_text')
+				.data(carriers)
+				.enter()
+				.append('text')
+				.text(d => d)
+				.style('font-size', 'x-small')
+				.style('font-family', 'Arial')
+				.attr('text-anchor', 'start')
+				.attr('transform', (d, i) => 'translate(' + (i*smallspace + size) + ', ' + (padding + size*1.6) + ')rotate(90)')
+
+			svg.append('text')
+				.text("carrier")
+				.style('font-size', 'small')
+				.style('font-weight', 'bold')
+				.style('font-family', 'Arial')
+				.style('fill', '#ccc')
+				.attr('transform', 'translate(' + (smallspace + size * 1.25) + ',' + (padding + size*2.4)+')')
+
+			svg.selectAll('.v_text')
+				.data(weather_conditions)
+				.enter()
+				.append('text')
+				.text(d => d)
+				.style('font-size', 'x-small')
+				.style('font-family', 'Arial')
+				.attr('text-anchor', 'start')
+				.attr('transform', (d, i) => 'translate(' + (i*smallspace + size*0.69) + ', ' + (padding + size*1.6) + ')rotate(90)')
+
+			svg.append('text')
+				.text("weather")
+				.style('font-size', 'small')
+				.style('font-weight', 'bold')
+				.style('font-family', 'Arial')
+				.style('fill', '#ccc')
+				.attr('transform', 'translate(' + (smallspace + size*0.56) + ',' + (padding + size*2.4)+')')
+			
+
+			defs = svg.append('defs')
+			const linearGradient = defs.append("linearGradient")
+      			.attr("id", "linear-gradient");
+
+      		colorScale = d3.scaleSequential(d3.interpolateOrRd).domain([0, 42])
+
+      		linearGradient.selectAll("stop")
+			    .data(colorScale.ticks().map((t, i, n) => ({ offset: `${100*i/n.length}%`, color: colorScale(t) })))
+			    .enter().append("stop")
+			    .attr("offset", d => d.offset)
+			    .attr("stop-color", d => d.color);
+
+      		svg.append('g')
+			    .attr("transform", 'translate('+ padding +','+ padding*3.8 +')')
+			    .append("rect")
+				.attr("width", padding*1.7)
+				.attr("height", 10)
+				.style("fill", "url(#linear-gradient)");
+
+			svg.append('text')
+			    .attr("transform", 'translate('+ padding*1.05 +','+ padding*3.75 +')')
+			    .style('font-size', 'x-small')
+			    .style('font-family', 'Arial')
+			    .text('less accidents')
+
+			svg.append('text')
+			    .attr("transform", 'translate('+ padding*2.3 +','+ padding*3.75 +')')
+			    .style('font-size', 'x-small')
+			    .style('font-family', 'Arial')
+			    .text('more accidents')
+
+			h = document.createElement('div')
+			h.style.position = 'absolute'
+			h.style.left = padding*4 + 'px'
+			h.style.top = padding + 'px'
+			h.style.fontSize = 'small'
+			h.style.maxWidth = '500px'
+			h.style.fontFamily = 'Arial'
+			h.innerHTML = "The graph describes the number of plane crashes in relation to their plane manufacturer, the carrier of the flight and the weather conditions during the flight. Darker squares indicate a higher number of crashes with that particular combination, white (absent) squares indicate no crashes. Hover over a node to see nodes that share the same combination."
+			document.body.append(h);
+  		})
+
+  	</script>
+</html>

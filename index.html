@@ -1,0 +1,156 @@
+<!doctype html>
+ <meta charset="UTF-8">
+<html>
+  <head>
+    <script src="https://d3js.org/d3.v5.min.js"></script>
+    <style>
+    	svg {
+    		padding: 2%;
+    	}
+    </style>
+  </head>
+  <body>
+    
+  </body>
+  	<script type="text/javascript">
+
+  		width = window.innerWidth - 50;
+  		height = window.innerHeight;
+  		num_countries = 10
+
+  		svg = d3.select('body').append('svg')
+  			.attr('width', width)
+  			.attr('height', height)
+
+  		d3.json("top_wiki.json").then(function(data, error){
+
+  			data['langs'] = data['langs'].filter(d => d.longname != 'Russian' && d.longname != 'Japanese' && d.longname != 'Portuguese' && d.longname != 'Vietnamese' && d.longname != 'Arabic' && d.longname != 'Chinese' && d.longname != 'Ukrainian' && d.longname != 'Korean')
+
+  			data['langs'] = data['langs'].slice(0, num_countries)
+
+  			counts = data['langs'].map(d => d['top_articles']).map(p => p.map(c => c.count)).flat()
+  			mincount = Math.min.apply(0, counts)
+  			maxcount = Math.max.apply(0, counts)
+
+  			circle_scale = d3.scaleLinear().domain([mincount, maxcount]).range([10, 20])
+
+  			whatarray = data['langs'].map(d => d['top_articles']).map(p => p.map(c => c.what)).flat()
+  			whatarray = [...new Set(whatarray)]
+  			whatarray = whatarray.filter(w => w != undefined)
+
+  			categories = data['langs'].map(d => d.top_articles).map(p => p.map(c => c.categories)).flat().flat()
+  			category_count = {}
+  			for (c of categories) category_count[c] = category_count[c]? category_count[c] + 1 : 1
+  			list = category_count
+  			keysSorted = Object.keys(list).sort(function(a,b){return list[a]-list[b]})
+  			//for (elem of keysSorted) console.log(elem, category_count[elem]) 
+
+  			legend = svg.append('g')
+  				.attr('transform', 'translate('+ width*0.8 + ',' + 50 +')')
+  			for (w in whatarray){
+  				legend.append('rect')
+  				.attr('width', 8)
+  				.attr('height', 8)
+  				.attr('fill', w < 10? d3.schemeCategory10[w] : d3.hsl(d3.schemeCategory10[w%10]).brighter(1))
+  				.attr('transform', 'translate('+-10+','+(w*12 - 8)+')')
+
+  				legend.append('text')
+  				.text(whatarray[w])
+  				.attr('transform', 'translate('+0+','+w*12+')')
+  				.style('font-size', 'small')
+  				.style('font-family', 'Arial')
+  			}
+
+  			legend.append('rect')
+  				.attr('width', 8)
+  				.attr('height', 8)
+  				.attr('fill', "#ccc")
+  				.attr('transform', 'translate('+-10+','+(23*12 - 8)+')')
+
+  				legend.append('text')
+  				.text('unknown')
+  				.attr('transform', 'translate('+0+','+23*12+')')
+  				.style('font-size', 'small')
+  				.style('font-family', 'Arial')
+  			
+  			g = svg.selectAll('.meh')
+  				.data(data['langs'])
+  				.enter()
+  				.append('g')
+  				.attr('id', (d) => d.longname)
+  				.attr('transform', (d, i) => 'translate(' + (50 + i*(width/num_countries)*0.7) + ', 50)')
+
+  			g.append('text')
+		  		.attr('x', (d, i) => 0)
+		  		.attr('y', (d, i) => 0)
+		  		.style('font-family', 'Arial')
+		  		.text(d => d['longname'])
+		  		.attr('text-anchor', 'middle')
+
+		  	article = g.selectAll('.meh')
+		  		.data(d => d['top_articles'])
+		  		.enter()
+		  		.append('g')
+		  		.attr('id', (d, i) => d.title.replace(/[^A-Za-z0-9\s]/g,'').replace(/ /g,'') + d.count)
+		  		.attr('transform', (d, i) => 'translate(' + 0 + ', ' + (i*(height/25)*0.8 + 50) + ')')
+		  		.on('mouseover', d => {
+		  			t = article.selectAll('text').filter(t => t.title == d.title)
+		  				.transition()
+		  				.duration(100)
+		  				.style("opacity", 1)
+		  		})
+		  		.on('mouseout', d => {
+		  			t = article.selectAll('text').filter(t => t.title == d.title)
+		  				.transition()
+		  				.duration(1000)
+		  				.style("opacity", 0)
+		  		})
+
+		  	article.append('rect')
+		  		.attr('x', (d, i) => 0)
+		  		.attr('y', (d, i) => 0)
+		  		.attr('width', d => circle_scale(d.count))
+		  		.attr('height', d => circle_scale(d.count))
+		  		.attr('class', d => 'circle')
+		  		.attr('transform', 'translate(0, '+ -0.3*height/25 + ')')
+		  		.attr('fill', (d) => {
+		  			if (d.what == undefined) return "#ccc"
+		  			w = whatarray.indexOf(d.what)
+		  			return w < 10? d3.schemeCategory10[w] : d3.hsl(d3.schemeCategory10[w%10]).brighter(1)
+		  		})
+		  		.on('mouseover', (d) => {
+		  			//console.log(g.selectAll())
+		  		})
+
+		  	article.append('text')
+		  		.attr('x', (d, i) => 20)
+		  		.attr('y', (d, i) => 0)
+		  		.attr('text-anchor', 'start')
+		  		.text(d => d['title'].split(' ').slice(0, d['title'].split(' ').length/2 + 1).join(' '))
+		  		.style('font-family', 'Arial')
+		  		.style('font-size', 'x-small')
+		  		.style('opacity', 0)
+
+		  	article.append('text')
+		  		.attr('x', (d, i) => 20)
+		  		.attr('y', (d, i) => 10)
+		  		.attr('text-anchor', 'start')
+		  		.text(d => d['title'].split(' ').slice(d['title'].split(' ').length/2 + 1, d['title'].split(' ').length).join(' '))
+		  		.style('font-family', 'Arial')
+		  		.style('font-size', 'x-small')
+		  		.style('opacity', 0)
+
+		  	d = document.createElement('div')
+		  	d.style.position = 'absolute'
+		  	d.style.left = width*0.8 + 'px'
+		  	d.style.fontFamily = 'Arial'
+		  	d.style.fontSize = 'small'
+		  	d.style.top = '50%'
+		  	d.style.maxWidth = '10%'
+		  	d.innerHTML = 'Top 25 most visited wikipedia articles by language in the week 3/1/19 - 3/8/19. <br><br> Hover over the squares to see the title of the article. If the same article is present in multiple languages, the position in the charts of the other languages will be displayed. The articles are classified by wikipedia users in categories, represented with colors. The size of the squares represents the number of views.'
+		  	document.body.append(d)
+
+  		})
+
+  	</script>
+</html>
